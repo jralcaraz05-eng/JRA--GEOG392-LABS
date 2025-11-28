@@ -1,0 +1,91 @@
+import arcpy
+from arcpy.sa import Raster
+
+# ---------------------------------------------------------
+# ENVIRONMENT: set this to YOUR project geodatabase
+# ---------------------------------------------------------
+arcpy.env.workspace = r"C:\Users\jralc\OneDrive\Documents\ArcGIS\Projects\lab7GISP\lab7GISP.gdb"
+arcpy.env.overwriteOutput = True
+
+# Check out Spatial Analyst (needed for NDVI)
+arcpy.CheckOutExtension("Spatial")
+
+# ---------------------------------------------------------
+# INPUT RASTERS (your exact files)
+# ---------------------------------------------------------
+dem = r"C:\Users\jralc\Downloads\Lab7Data\Data\DEM\n30_w097_1arc_v3.tif"
+
+# Landsat surface reflectance bands
+band_red   = r"C:\Users\jralc\Downloads\Lab7Data\Data\LandSAT\LT05_L2SP_026039_20110803_20200820_02_T1_SR_B3.TIF"  # Band 3 = Red
+band_nir   = r"C:\Users\jralc\Downloads\Lab7Data\Data\LandSAT\LT05_L2SP_026039_20110803_20200820_02_T1_SR_B4.TIF"  # Band 4 = NIR
+band_green = r"C:\Users\jralc\Downloads\Lab7Data\Data\LandSAT\LT05_L2SP_026039_20110803_20200820_02_T1_SR_B2.TIF"  # Band 2 = Green
+band_blue  = r"C:\Users\jralc\Downloads\Lab7Data\Data\LandSAT\LT05_L2SP_026039_20110803_20200820_02_T1_SR_B1.TIF"  # Band 1 = Blue
+
+print("DEM exists:", arcpy.Exists(dem))
+print("Red band exists:", arcpy.Exists(band_red))
+print("NIR band exists:", arcpy.Exists(band_nir))
+print("Green band exists:", arcpy.Exists(band_green))
+print("Blue band exists:", arcpy.Exists(band_blue))
+
+# ---------------------------------------------------------
+# TASK 1: Hillshade & Slope from DEM
+# ---------------------------------------------------------
+
+# Hillshade (output name inside lab7GISP.gdb)
+hillshade_name = "hillshade_dem"
+print("\nCreating Hillshade ->", hillshade_name)
+
+arcpy.ddd.HillShade(
+    dem,              # input DEM
+    hillshade_name,   # output raster dataset in the gdb
+    315,              # azimuth
+    45,               # altitude
+    "NO_SHADOWS",     # no cast shadows
+    1                 # z-factor
+)
+
+# Slope (degrees)
+slope_name = "slope_dem"
+print("Creating Slope ->", slope_name)
+
+arcpy.ddd.Slope(
+    dem,              # input DEM
+    slope_name,       # output raster dataset in the gdb
+    "DEGREE",         # slope units
+    1                 # z-factor
+)
+
+# ---------------------------------------------------------
+# TASK 2-1: RGB Composite (R-G-B)
+# ---------------------------------------------------------
+
+rgb_name = "landsat_rgb"
+print("\nCreating RGB composite ->", rgb_name)
+
+# Order must be RED;GREEN;BLUE
+arcpy.management.CompositeBands(
+    f"{band_red};{band_green};{band_blue}",
+    rgb_name
+)
+
+# ---------------------------------------------------------
+# TASK 2-2: ESRI NDVI from NIR & RED
+# NDVI_ESRI = ((NIR - RED) / (NIR + RED)) * 100 + 100
+# ---------------------------------------------------------
+
+print("\nCreating ESRI NDVI raster...")
+
+red_raster = Raster(band_red)
+nir_raster = Raster(band_nir)
+
+ndvi = ((nir_raster - red_raster) / (nir_raster + red_raster)) * 100 + 100
+
+ndvi_name = "landsat_ndvi_esri"
+ndvi.save(ndvi_name)
+
+print("\nAll processing complete.")
+print("Outputs in your project GDB:")
+print("  Hillshade ->", hillshade_name)
+print("  Slope     ->", slope_name)
+print("  RGB       ->", rgb_name)
+print("  NDVI      ->", ndvi_name)
